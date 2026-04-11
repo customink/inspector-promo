@@ -116,3 +116,40 @@ describe('GET /api/fps/:id', () => {
     }
   });
 });
+
+describe('GET /api/links/:id', () => {
+  it('returns constructed URLs for external systems', async () => {
+    // Mock pg and reload server
+    const Module = require('module');
+    const originalRequire = Module.prototype.require;
+
+    Module.prototype.require = function(id) {
+      if (id === 'pg') {
+        return {
+          Pool: class {
+            query() {
+              return { rows: [] };
+            }
+            end() {}
+          }
+        };
+      }
+      return originalRequire.apply(this, arguments);
+    };
+
+    delete require.cache[require.resolve('../server')];
+    const app = require('../server');
+    const res = await request(app, '/api/links/ABC123');
+
+    // Restore original require
+    Module.prototype.require = originalRequire;
+
+    assert.strictEqual(res.status, 200);
+    assert.ok(Array.isArray(res.body.links));
+    for (const link of res.body.links) {
+      assert.ok(link.name, 'Each link should have a name');
+      assert.ok(link.url, 'Each link should have a url');
+      assert.ok(link.url.includes('ABC123'), 'URL should contain the product ID');
+    }
+  });
+});

@@ -76,6 +76,16 @@ app.get('/api/fps/:id', async (req, res) => {
   }
 });
 
+// Links route — construct URLs for external systems
+app.get('/api/links/:id', (req, res) => {
+  const { id } = req.params;
+  const links = config.externalLinks.map(({ name, urlPattern }) => ({
+    name,
+    url: urlPattern.replace('{id}', id),
+  }));
+  res.json({ links });
+});
+
 // Only start listening if this file is run directly (not required by tests)
 if (require.main === module) {
   app.listen(port, () => {
