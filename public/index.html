@@ -13,45 +13,45 @@
       <input type="text" id="product-id" placeholder="Enter product ID or style ID" autofocus>
       <button type="submit">Look Up</button>
     </form>
+    <div id="identity-content"></div>
+    <div id="disambiguation" class="hidden"></div>
   </header>
 
   <main id="results" class="hidden">
-    <!-- Product Identity -->
-    <section id="identity-section">
-      <h2>Product Identity</h2>
-      <div id="identity-content"></div>
-      <div id="disambiguation" class="hidden"></div>
-    </section>
+    <nav id="left-nav">
+      <button class="nav-btn active" data-section="links">Links</button>
+      <button class="nav-btn" data-section="fpdb">FPDB</button>
+      <button class="nav-btn" data-section="fps">FPS</button>
+      <button class="nav-btn" data-section="mms">MMS</button>
+    </nav>
 
-    <!-- External Links -->
-    <section id="links-section">
-      <h2>External Links</h2>
-      <div id="links-content"></div>
-    </section>
+    <div id="content-area">
+      <!-- Links -->
+      <section id="links-section" class="content-section">
+        <div id="links-content"></div>
+      </section>
 
-    <!-- FPDB Data -->
-    <section id="fpdb-section">
-      <h2>FPDB Data</h2>
-      <div id="fpdb-loading" class="loading hidden">Loading FPDB data...</div>
-      <div id="fpdb-content"></div>
-    </section>
+      <!-- FPDB Data -->
+      <section id="fpdb-section" class="content-section hidden">
+        <div id="fpdb-loading" class="loading hidden">Loading FPDB data...</div>
+        <div id="fpdb-tab-nav" class="tab-nav"></div>
+        <div id="fpdb-tab-content" class="tab-content"></div>
+      </section>
 
-    <!-- MMS Data -->
-    <section id="mms-section">
-      <h2>MMS Data</h2>
-      <div id="mms-loading" class="loading hidden">Loading MMS data...</div>
-      <div id="mms-content"></div>
-    </section>
+      <!-- FPS API Data -->
+      <section id="fps-section" class="content-section hidden">
+        <div id="fps-loading" class="loading hidden">Loading FPS data...</div>
+        <div id="fps-tab-nav" class="tab-nav"></div>
+        <div id="fps-tab-content" class="tab-content"></div>
+      </section>
 
-    <!-- FPS API Data -->
-    <section id="fps-section">
-      <h2>FPS API Data</h2>
-      <div id="fps-loading" class="loading hidden">Loading FPS data...</div>
-      <div id="fps-tabs" class="hidden">
-        <nav id="fps-tab-nav"></nav>
-        <div id="fps-tab-content"></div>
-      </div>
-    </section>
+      <!-- MMS Data -->
+      <section id="mms-section" class="content-section hidden">
+        <div id="mms-loading" class="loading hidden">Loading MMS data...</div>
+        <div id="mms-tab-nav" class="tab-nav"></div>
+        <div id="mms-tab-content" class="tab-content"></div>
+      </section>
+    </div>
   </main>
 
   <script src="app.js"></script>

@@ -4,15 +4,21 @@ const resultsEl = document.getElementById('results');
 const identityContent = document.getElementById('identity-content');
 const disambiguationEl = document.getElementById('disambiguation');
 const linksContent = document.getElementById('links-content');
-const fpdbLoading = document.getElementById('fpdb-loading');
-const fpdbContent = document.getElementById('fpdb-content');
-const mmsLoading = document.getElementById('mms-loading');
-const mmsContent = document.getElementById('mms-content');
-const fpsLoading = document.getElementById('fps-loading');
-const fpsTabs = document.getElementById('fps-tabs');
-const fpsTabNav = document.getElementById('fps-tab-nav');
-const fpsTabContent = document.getElementById('fps-tab-content');
 
+// Left nav
+const navButtons = document.querySelectorAll('.nav-btn');
+const sections = document.querySelectorAll('.content-section');
+
+navButtons.forEach((btn) => {
+  btn.addEventListener('click', () => {
+    navButtons.forEach((b) => b.classList.remove('active'));
+    btn.classList.add('active');
+    sections.forEach((s) => s.classList.add('hidden'));
+    document.getElementById(`${btn.dataset.section}-section`).classList.remove('hidden');
+  });
+});
+
+// Form submit
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
   const id = input.value.trim();
@@ -27,18 +33,21 @@ function resetResults() {
   disambiguationEl.innerHTML = '';
   disambiguationEl.classList.add('hidden');
   linksContent.innerHTML = '';
-  fpdbContent.innerHTML = '';
-  fpdbLoading.classList.add('hidden');
-  mmsContent.innerHTML = '';
-  mmsLoading.classList.add('hidden');
-  fpsTabNav.innerHTML = '';
-  fpsTabContent.innerHTML = '';
-  fpsTabs.classList.add('hidden');
-  fpsLoading.classList.add('hidden');
+  // Reset all tabbed sections
+  ['fpdb', 'fps', 'mms'].forEach((key) => {
+    document.getElementById(`${key}-loading`).classList.add('hidden');
+    document.getElementById(`${key}-tab-nav`).innerHTML = '';
+    document.getElementById(`${key}-tab-content`).innerHTML = '';
+  });
+  // Reset nav to Links
+  navButtons.forEach((b) => b.classList.remove('active'));
+  navButtons[0].classList.add('active');
+  sections.forEach((s) => s.classList.add('hidden'));
+  sections[0].classList.remove('hidden');
 }
 
 async function doLookup(id) {
-  identityContent.innerHTML = '<span class="loading">Looking up product...</span>';
+  identityContent.innerHTML = '<span class="loading">Looking up...</span>';
   try {
     const res = await fetch(`/api/lookup/${encodeURIComponent(id)}`);
     const data = await res.json();
@@ -49,12 +58,12 @@ async function doLookup(id) {
     }
 
     if (data.ambiguous) {
-      identityContent.innerHTML = '<span>Multiple matches found. Please select one:</span>';
+      identityContent.innerHTML = '<span>Multiple matches — select one:</span>';
       disambiguationEl.classList.remove('hidden');
       disambiguationEl.innerHTML = '';
       data.matches.forEach((match) => {
         const btn = document.createElement('button');
-        btn.textContent = `${match.product_id} — ${match.supplier_name} (Style: ${match.style_id})`;
+        btn.textContent = `${match.product_id} — ${match.supplier_name}`;
         btn.addEventListener('click', () => {
           disambiguationEl.classList.add('hidden');
           showProduct(match);
@@ -71,97 +80,127 @@ async function doLookup(id) {
 }
 
 function showProduct(match) {
-  const rows = [
-    ['Product ID', match.product_id],
-    ['Supplier', match.supplier_name],
-  ];
-  if (match.product_name) rows.push(['Product Name', match.product_name]);
-  if (match.style_id) rows.push(['Style ID', match.style_id]);
-
-  identityContent.innerHTML = `
-    <table>
-      ${rows.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('')}
-    </table>
-  `;
+  const parts = [`<b>${match.product_id}</b>`];
+  if (match.supplier_name) parts.push(match.supplier_name);
+  if (match.product_name) parts.push(match.product_name);
+  if (match.style_id) parts.push(`Style: ${match.style_id}`);
+  identityContent.innerHTML = parts.join(' &middot; ');
 
   const productId = match.product_id;
   const styleId = match.style_id;
   const provider = match.supplier_name;
+
   fetchLinks(productId, styleId);
-  fetchFpdb(productId);
+  fetchTabbedData('fpdb', productId, 'FPDB', renderTable);
+  fetchTabbedData('fps', `${productId}?provider=${encodeURIComponent(provider)}`, 'FPS', renderJson);
   if (styleId) {
-    fetchMms(styleId);
+    fetchTabbedData('mms', styleId, 'MMS', renderTable);
   } else {
-    mmsContent.innerHTML = '<span class="no-data">No style ID available — MMS data requires a style ID</span>';
+    document.getElementById('mms-tab-content').innerHTML =
+      '<span class="no-data">No style ID available — MMS data requires a style ID</span>';
   }
-  fetchFps(productId, provider);
 }
+
+// --- Links ---
 
 async function fetchLinks(productId, styleId) {
   try {
     const params = styleId ? `?style_id=${encodeURIComponent(styleId)}` : '';
     const res = await fetch(`/api/links/${encodeURIComponent(productId)}${params}`);
     const data = await res.json();
-    linksContent.innerHTML = '';
+    if (!data.links || data.links.length === 0) {
+      linksContent.innerHTML = '<span class="no-data">No links configured</span>';
+      return;
+    }
+    const ul = document.createElement('ul');
     data.links.forEach(({ name, url }) => {
+      const li = document.createElement('li');
       const a = document.createElement('a');
       a.href = url;
       a.target = '_blank';
       a.rel = 'noopener noreferrer';
       a.textContent = name;
-      linksContent.appendChild(a);
+      li.appendChild(a);
+      ul.appendChild(li);
     });
+    linksContent.innerHTML = '';
+    linksContent.appendChild(ul);
   } catch (err) {
     linksContent.innerHTML = `<span class="error-message">Failed to load links: ${err.message}</span>`;
   }
 }
 
-function fetchDataSection(endpoint, id, loadingEl, contentEl, label) {
+// --- Tabbed data fetcher (shared by FPDB, FPS, MMS) ---
+
+function fetchTabbedData(key, idAndParams, label, renderFn) {
+  const loadingEl = document.getElementById(`${key}-loading`);
+  const tabNavEl = document.getElementById(`${key}-tab-nav`);
+  const tabContentEl = document.getElementById(`${key}-tab-content`);
+
   loadingEl.classList.remove('hidden');
-  contentEl.innerHTML = '';
-  return fetch(`/api/${endpoint}/${encodeURIComponent(id)}`)
+  tabNavEl.innerHTML = '';
+  tabContentEl.innerHTML = '';
+
+  // idAndParams may contain query string already (e.g. "ABC123?provider=foo")
+  const url = `/api/${key}/${idAndParams}`;
+
+  fetch(url)
     .then((res) => res.json())
     .then((data) => {
       loadingEl.classList.add('hidden');
 
       if (data.error) {
-        contentEl.innerHTML = `<span class="error-message">${label} error: ${data.error}</span>`;
+        tabContentEl.innerHTML = `<span class="error-message">${label} error: ${data.error}</span>`;
         return;
       }
 
-      for (const [name, rows] of Object.entries(data)) {
-        const section = document.createElement('div');
-        section.className = 'redshift-query';
+      const entries = Object.entries(data);
+      if (entries.length === 0) {
+        tabContentEl.innerHTML = `<span class="no-data">No ${label} data</span>`;
+        return;
+      }
 
-        const h3 = document.createElement('h3');
-        h3.textContent = name;
-        h3.addEventListener('click', () => section.classList.toggle('collapsed'));
-        section.appendChild(h3);
+      const panes = {};
 
-        if (rows.length === 0) {
-          const noData = document.createElement('div');
-          noData.className = 'no-data';
-          noData.textContent = 'No data found';
-          section.appendChild(noData);
-        } else {
-          section.appendChild(buildTable(rows));
+      entries.forEach(([name, responseData], idx) => {
+        // Tab button
+        const btn = document.createElement('button');
+        btn.textContent = name;
+        btn.addEventListener('click', () => activateTab(name));
+        if (idx === 0) btn.classList.add('active');
+        tabNavEl.appendChild(btn);
+
+        // Pane
+        const pane = document.createElement('div');
+        renderFn(pane, responseData);
+        if (idx !== 0) pane.style.display = 'none';
+        tabContentEl.appendChild(pane);
+        panes[name] = pane;
+      });
+
+      function activateTab(name) {
+        for (const b of tabNavEl.children) {
+          b.classList.toggle('active', b.textContent === name);
         }
-
-        contentEl.appendChild(section);
+        Object.entries(panes).forEach(([n, p]) => {
+          p.style.display = n === name ? '' : 'none';
+        });
       }
     })
     .catch((err) => {
       loadingEl.classList.add('hidden');
-      contentEl.innerHTML = `<span class="error-message">Failed to load ${label} data: ${err.message}</span>`;
+      tabContentEl.innerHTML = `<span class="error-message">Failed to load ${label} data: ${err.message}</span>`;
     });
 }
 
-function fetchFpdb(productId) {
-  return fetchDataSection('fpdb', productId, fpdbLoading, fpdbContent, 'FPDB');
-}
+// --- Table renderer (for FPDB and MMS) ---
 
-function fetchMms(styleId) {
-  return fetchDataSection('mms', styleId, mmsLoading, mmsContent, 'MMS');
+function renderTable(pane, rows) {
+  if (!Array.isArray(rows) || rows.length === 0) {
+    pane.innerHTML = '<span class="no-data">No data found</span>';
+    return;
+  }
+  pane.appendChild(buildTable(rows));
 }
 
 function buildTable(rows) {
@@ -220,65 +259,14 @@ function buildRow(row, columns) {
   return tr;
 }
 
-async function fetchFps(productId, provider) {
-  fpsLoading.classList.remove('hidden');
-  fpsTabs.classList.add('hidden');
-  try {
-    const params = provider ? `?provider=${encodeURIComponent(provider)}` : '';
-    const res = await fetch(`/api/fps/${encodeURIComponent(productId)}${params}`);
-    const data = await res.json();
-    fpsLoading.classList.add('hidden');
+// --- JSON renderer (for FPS) ---
 
-    if (data.error) {
-      fpsTabContent.innerHTML = `<span class="error-message">FPS error: ${data.error}</span>`;
-      fpsTabs.classList.remove('hidden');
-      return;
-    }
-
-    const entries = Object.entries(data);
-    if (entries.length === 0) {
-      fpsTabContent.innerHTML = '<span class="no-data">No FPS data</span>';
-      fpsTabs.classList.remove('hidden');
-      return;
-    }
-
-    fpsTabNav.innerHTML = '';
-    fpsTabContent.innerHTML = '';
-    const panes = {};
-
-    entries.forEach(([name, responseData], idx) => {
-      const btn = document.createElement('button');
-      btn.textContent = name;
-      btn.addEventListener('click', () => activateTab(name));
-      if (idx === 0) btn.classList.add('active');
-      fpsTabNav.appendChild(btn);
-
-      const pane = document.createElement('div');
-      pane.className = 'json-tree';
-      pane.appendChild(renderJson(responseData));
-      if (idx !== 0) pane.style.display = 'none';
-      fpsTabContent.appendChild(pane);
-      panes[name] = pane;
-    });
-
-    fpsTabs.classList.remove('hidden');
-
-    function activateTab(name) {
-      for (const b of fpsTabNav.children) {
-        b.classList.toggle('active', b.textContent === name);
-      }
-      Object.entries(panes).forEach(([n, p]) => {
-        p.style.display = n === name ? '' : 'none';
-      });
-    }
-  } catch (err) {
-    fpsLoading.classList.add('hidden');
-    fpsTabContent.innerHTML = `<span class="error-message">Failed to load FPS data: ${err.message}</span>`;
-    fpsTabs.classList.remove('hidden');
-  }
+function renderJson(pane, data) {
+  pane.className = 'json-tree';
+  pane.appendChild(renderJsonNode(data));
 }
 
-function renderJson(data) {
+function renderJsonNode(data) {
   const container = document.createElement('span');
 
   if (data === null) {
@@ -329,7 +317,7 @@ function renderJson(data) {
 
     data.forEach((item, idx) => {
       const line = document.createElement('div');
-      line.appendChild(renderJson(item));
+      line.appendChild(renderJsonNode(item));
       if (idx < data.length - 1) line.appendChild(document.createTextNode(','));
       children.appendChild(line);
     });
@@ -374,7 +362,7 @@ function renderJson(data) {
       keySpan.textContent = `"${key}"`;
       line.appendChild(keySpan);
       line.appendChild(document.createTextNode(': '));
-      line.appendChild(renderJson(data[key]));
+      line.appendChild(renderJsonNode(data[key]));
       if (idx < keys.length - 1) line.appendChild(document.createTextNode(','));
       children.appendChild(line);
     });
