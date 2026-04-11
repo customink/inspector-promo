@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inspector Promo</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Inspector Promo</h1>
+    <form id="lookup-form">
+      <input type="text" id="product-id" placeholder="Enter product ID or style ID" autofocus>
+      <button type="submit">Look Up</button>
+    </form>
+  </header>
+
+  <main id="results" class="hidden">
+    <!-- Product Identity -->
+    <section id="identity-section">
+      <h2>Product Identity</h2>
+      <div id="identity-content"></div>
+      <div id="disambiguation" class="hidden"></div>
+    </section>
+
+    <!-- External Links -->
+    <section id="links-section">
+      <h2>External Links</h2>
+      <div id="links-content"></div>
+    </section>
+
+    <!-- Redshift Data -->
+    <section id="redshift-section">
+      <h2>Redshift Data</h2>
+      <div id="redshift-loading" class="loading hidden">Loading Redshift data...</div>
+      <div id="redshift-content"></div>
+    </section>
+
+    <!-- FPS API Data -->
+    <section id="fps-section">
+      <h2>FPS API Data</h2>
+      <div id="fps-loading" class="loading hidden">Loading FPS data...</div>
+      <div id="fps-tabs" class="hidden">
+        <nav id="fps-tab-nav"></nav>
+        <div id="fps-tab-content"></div>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
