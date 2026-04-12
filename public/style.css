@@ -1,153 +1,68 @@
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
+/* === Layout === */
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: #f5f5f5;
-  color: #333;
-  line-height: 1.5;
   height: 100vh;
   display: flex;
   flex-direction: column;
 }
 
-header {
-  background: #1a1a2e;
-  color: #fff;
-  padding: 0.75rem 1.5rem;
-  display: flex;
-  align-items: center;
-  gap: 1.5rem;
-  flex-shrink: 0;
-}
-
-header h1 {
-  font-size: 1.1rem;
-  white-space: nowrap;
-}
-
-#lookup-form {
-  display: flex;
-  gap: 0.5rem;
-  max-width: 400px;
-}
-
-#product-id {
-  width: 220px;
-  padding: 0.4rem 0.6rem;
-  font-size: 0.9rem;
-  border: none;
-  border-radius: 4px;
-}
-
-#lookup-form button {
-  padding: 0.4rem 1rem;
-  font-size: 0.9rem;
-  background: #e94560;
-  color: #fff;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-#lookup-form button:hover {
-  background: #c73e54;
-}
-
-/* Identity info in header */
-#identity-content {
-  font-size: 0.85rem;
-  display: flex;
-  gap: 1.5rem;
-  align-items: center;
-}
-
-#identity-content table {
-  border-collapse: collapse;
-}
-
-#identity-content td {
-  padding: 0 0.5rem;
-}
-
-#identity-content td:first-child {
-  font-weight: 600;
-  opacity: 0.7;
-  font-size: 0.75rem;
-  text-transform: uppercase;
-}
-
-/* Disambiguation */
-#disambiguation {
-  font-size: 0.85rem;
-}
-
-#disambiguation button {
-  padding: 0.3rem 0.6rem;
-  margin-right: 0.5rem;
-  background: rgba(255,255,255,0.15);
-  color: #fff;
-  border: 1px solid rgba(255,255,255,0.3);
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.85rem;
-}
-
-#disambiguation button:hover {
-  background: rgba(255,255,255,0.25);
-}
-
-.hidden {
-  display: none !important;
-}
-
-/* Main layout */
 main {
   display: flex;
   flex: 1;
   overflow: hidden;
 }
 
-/* Left nav */
+/* === Navbar === */
+.navbar {
+  background: #1a1a2e;
+  flex-shrink: 0;
+}
+
+/* === Accent color overrides === */
+.btn-primary {
+  background-color: #e94560;
+  border-color: #e94560;
+}
+
+.btn-primary:hover,
+.btn-primary:active {
+  background-color: #c73e54;
+  border-color: #c73e54;
+}
+
+.nav-pills .nav-link.active {
+  background-color: #e94560;
+}
+
+.nav-tabs .nav-link.active {
+  color: #e94560;
+  border-bottom-color: #e94560;
+}
+
+/* === Left nav === */
 #left-nav {
   width: 120px;
   flex-shrink: 0;
   background: #fff;
-  border-right: 1px solid #e0e0e0;
-  display: flex;
-  flex-direction: column;
-  padding: 0.5rem 0;
+  border-right: 1px solid var(--bs-border-color);
 }
 
-.nav-btn {
-  display: block;
-  width: 100%;
-  padding: 0.6rem 1rem;
-  text-align: left;
-  background: none;
-  border: none;
-  border-left: 3px solid transparent;
-  cursor: pointer;
-  font-size: 0.9rem;
+#left-nav .nav-link {
+  border-radius: 0;
   color: #666;
+  padding: 0.6rem 1rem;
+  font-size: 0.9rem;
 }
 
-.nav-btn:hover {
+#left-nav .nav-link:hover {
   background: #f5f5f5;
   color: #333;
 }
 
-.nav-btn.active {
-  border-left-color: #e94560;
-  color: #1a1a2e;
-  font-weight: 600;
-  background: #f8f8ff;
+#left-nav .nav-link.active {
+  color: #fff;
 }
 
-/* Content area */
+/* === Content area === */
 #content-area {
   flex: 1;
   overflow: hidden;
@@ -160,136 +75,43 @@ main {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  padding: 0.75rem 1rem;
 }
 
-/* Links section */
-#links-content {
-  padding: 0.25rem 0;
-}
-
-#links-content ul {
-  list-style: disc;
-  padding-left: 1.25rem;
-}
-
-#links-content li {
-  padding: 0.2rem 0;
-}
-
-#links-content a {
-  color: #1a1a2e;
-  text-decoration: none;
-  font-size: 0.9rem;
-}
-
-#links-content a:hover {
-  text-decoration: underline;
-  color: #e94560;
-}
-
-/* Tab nav (shared by FPDB, FPS, MMS) */
-.tab-nav {
-  display: flex;
-  gap: 0;
-  border-bottom: 2px solid #eee;
-  flex-shrink: 0;
-}
-
-.tab-nav button {
-  padding: 0.5rem 1rem;
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -2px;
-  cursor: pointer;
-  font-size: 0.85rem;
-  color: #666;
-}
-
-.tab-nav button.active {
-  border-bottom-color: #e94560;
-  color: #1a1a2e;
-  font-weight: 600;
-}
-
-.tab-nav button:hover {
-  color: #333;
-}
-
-/* Tab content */
 .tab-content {
   flex: 1;
   overflow: auto;
-  padding: 0.5rem 0;
+  padding: 0.5rem 0 0.5rem 1rem;
 }
 
-/* Data tables */
-.table-wrap {
-  overflow: auto;
-  border: 1px solid #eee;
-  border-radius: 4px;
-  flex: 1;
-}
-
-.table-wrap table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.82rem;
-}
-
-.table-wrap th {
-  background: #f8f8f8;
+/* === Sticky table headers === */
+.table th {
   position: sticky;
   top: 0;
-  text-align: left;
-  padding: 0.35rem 0.5rem;
-  border-bottom: 2px solid #ddd;
+  background: var(--bs-table-bg, #fff);
+  z-index: 1;
   cursor: pointer;
   white-space: nowrap;
-  font-size: 0.8rem;
 }
 
-.table-wrap th:hover {
-  background: #eee;
-}
-
-.table-wrap td {
-  padding: 0.25rem 0.5rem;
-  border-bottom: 1px solid #f0f0f0;
+.table td {
   white-space: nowrap;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.table-wrap tr:hover td {
-  background: #f8f9ff;
-}
-
-/* JSON Tree */
+/* === JSON Tree === */
 .json-tree {
   font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
   font-size: 0.8rem;
   line-height: 1.6;
 }
 
-.json-tree .key {
-  color: #881391;
-}
-
-.json-tree .string {
-  color: #c41a16;
-}
-
-.json-tree .number {
-  color: #1c00cf;
-}
-
-.json-tree .boolean {
-  color: #0d22aa;
-}
-
-.json-tree .null {
-  color: #808080;
-}
+.json-tree .key { color: #881391; }
+.json-tree .string { color: #c41a16; }
+.json-tree .number { color: #1c00cf; }
+.json-tree .boolean { color: #0d22aa; }
+.json-tree .null { color: #808080; }
 
 .json-tree .toggle {
   cursor: pointer;
@@ -317,27 +139,4 @@ main {
 .json-tree .collapse-preview {
   display: none;
   color: #888;
-}
-
-/* Loading */
-.loading {
-  color: #888;
-  font-style: italic;
-  padding: 0.5rem 0;
-}
-
-/* Error display */
-.error-message {
-  color: #c0392b;
-  background: #fdf0ef;
-  padding: 0.5rem 0.75rem;
-  border-radius: 4px;
-  font-size: 0.9rem;
-}
-
-/* No data */
-.no-data {
-  color: #888;
-  font-style: italic;
-  padding: 0.5rem 0;
 }
