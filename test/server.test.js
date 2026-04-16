@@ -147,6 +147,46 @@ describe('GET /api/fps/:id', () => {
   });
 });
 
+describe('GET /api/s3/:provider/:id', () => {
+  it('returns S3 file contents keyed by file type', async () => {
+    const Module = require('module');
+    const originalRequire = Module.prototype.require;
+
+    Module.prototype.require = function(id) {
+      if (id === 'pg') {
+        return {
+          Pool: class {
+            query() { return { rows: [] }; }
+            end() {}
+          }
+        };
+      }
+      return originalRequire.apply(this, arguments);
+    };
+
+    // Mock execFile to return fake JSON
+    const childProcess = require('child_process');
+    const originalExecFile = childProcess.execFile;
+    childProcess.execFile = (cmd, args, opts, cb) => {
+      if (typeof opts === 'function') { cb = opts; }
+      cb(null, { stdout: '{"test": true}' });
+    };
+
+    delete require.cache[require.resolve('../server')];
+    const app = require('../server');
+    const res = await request(app, '/api/s3/hitpromo/0PATCH4');
+
+    Module.prototype.require = originalRequire;
+    childProcess.execFile = originalExecFile;
+
+    assert.strictEqual(res.status, 200);
+    const fileNames = config.s3Files.map((f) => f.name);
+    for (const name of fileNames) {
+      assert.ok(res.body[name] !== undefined, `Expected key "${name}"`);
+    }
+  });
+});
+
 describe('GET /api/links/:id', () => {
   it('returns constructed URLs for external systems', async () => {
     // Mock pg and reload server

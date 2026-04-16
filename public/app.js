@@ -34,7 +34,7 @@ function resetResults() {
   disambiguationEl.classList.add('d-none');
   linksContent.innerHTML = '';
   // Reset all tabbed sections
-  ['fpdb', 'fps', 'mms'].forEach((key) => {
+  ['fpdb', 'fps', 'mms', 's3'].forEach((key) => {
     document.getElementById(`${key}-loading`).classList.add('d-none');
     document.getElementById(`${key}-tab-nav`).innerHTML = '';
     document.getElementById(`${key}-tab-content`).innerHTML = '';
@@ -94,6 +94,7 @@ function showProduct(match) {
   fetchLinks(productId, styleId, provider);
   fetchTabbedData('fpdb', productId, 'FPDB', renderTable);
   fetchTabbedData('fps', `${productId}?provider=${encodeURIComponent(provider)}`, 'FPS', renderJson);
+  fetchTabbedData('s3', `${provider}/${productId}`, 'S3', renderJson);
   if (styleId) {
     fetchTabbedData('mms', styleId, 'MMS', renderTable);
   } else {

@@ -1,6 +1,9 @@
 require('dotenv').config();
 const express = require('express');
 const { Pool } = require('pg');
+const { execFile } = require('child_process');
+const { promisify } = require('util');
+const execFileAsync = promisify(execFile);
 const config = require('./config');
 
 const app = express();
@@ -64,6 +67,32 @@ app.get('/api/mms/:id', async (req, res) => {
       results[name] = result.rows;
     });
     await Promise.all(queries);
+    res.json(results);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// S3 raw data route — fetch pre-processing JSON from S3
+// :provider is the provider_name, :id is the product_id
+app.get('/api/s3/:provider/:id', async (req, res) => {
+  const { provider, id } = req.params;
+  const bucket = config.s3Bucket;
+  try {
+    const results = {};
+    const fetches = config.s3Files.map(async ({ name, path }) => {
+      const s3Key = `${provider}/${path.replace('{id}', id)}`;
+      const s3Uri = `s3://${bucket}/${s3Key}`;
+      try {
+        const { stdout } = await execFileAsync('aws', ['s3', 'cp', s3Uri, '-'], {
+          maxBuffer: 10 * 1024 * 1024,
+        });
+        results[name] = JSON.parse(stdout);
+      } catch (err) {
+        results[name] = { error: err.stderr || err.message };
+      }
+    });
+    await Promise.all(fetches);
     res.json(results);
   } catch (err) {
     res.status(500).json({ error: err.message });

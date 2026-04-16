@@ -251,6 +251,16 @@ module.exports = {
     },
   ],
 
+  // S3 raw data — pre-processing JSON files from supplier data bucket
+  s3Bucket: 'datafuse-promo-standards',
+  s3Files: [
+    { name: 'Product', path: 'products/{id}.json' },
+    { name: 'Inventory', path: 'inventory/{id}-inventory.json' },
+    { name: 'Media Images', path: 'media/{id}-image.json' },
+    { name: 'Media Documents', path: 'media/{id}-document.json' },
+    { name: 'Config', path: 'configs/{id}-config.json' },
+  ],
+
   // {id} = product_id (supplier's), {provider} = provider_name from FPDB
   fpsEndpoints: [
     {
