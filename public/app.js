@@ -1,5 +1,6 @@
 const form = document.getElementById('lookup-form');
 const input = document.getElementById('product-id');
+input.addEventListener('focus', () => input.select());
 const resultsEl = document.getElementById('results');
 const identityContent = document.getElementById('identity-content');
 const disambiguationEl = document.getElementById('disambiguation');
