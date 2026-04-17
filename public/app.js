@@ -96,6 +96,9 @@ async function doLookup(id) {
 }
 
 function showProduct(match) {
+  saveRecent(match);
+  renderRecents();
+
   const descParts = [];
   if (match.supplier_name) descParts.push(match.supplier_name);
   if (match.product_name) descParts.push(match.product_name);
@@ -637,3 +640,4 @@ function escapeHtml(str) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 }
+renderRecents();
