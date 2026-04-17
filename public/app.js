@@ -642,4 +642,8 @@ function escapeHtml(str) {
 }
 renderRecents();
 const mostRecent = loadRecents()[0];
-if (mostRecent) input.value = mostRecent.product_id;
+if (mostRecent) {
+  input.value = mostRecent.product_id;
+  resultsEl.classList.remove('d-none');
+  doLookup(mostRecent.product_id);
+}
