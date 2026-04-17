@@ -208,48 +208,70 @@ module.exports = {
     },
   ],
 
-  // MMS Data — raw MMS tables from rawdata
-  // $1 = style_id (mms_styles.id)
-  mmsQueries: [
-    {
-      name: 'Style',
-      sql: `SELECT id, name, manufacturer, mill_no, status,
-              decoration_method, brand, brand_type, style_type,
-              price_level, min_qty, color_limit,
-              material, features, sizing, sizes,
-              allow_blank, fitted, specialty, sponsorship,
-              has_lineup, has_singles_enabled_colors, ihp_bulk_enabled,
-              individual_ship_eligible, international_ship_eligible,
-              deploy_type, role, unit_of_measure, quantity_per_unit,
-              standard_decoration_days, rush_decoration_days,
-              created_at, updated_at, deployed_at, retired_at
-            FROM rawdata.mms_styles
-            WHERE id = CAST($1 AS INT)
-            LIMIT 1`,
-    },
-    {
-      name: 'Colors',
-      sql: `SELECT id, style_id, name, status,
-              pricing_group_id, mill_no, branding_method,
-              realb, singles_price, singles_enabled,
-              abo_enabled, dtg_enabled, inventory_enabled,
-              deploy_type, suppliers,
-              deployed_at, retired_at, created_at, updated_at
-            FROM rawdata.mms_colors
-            WHERE style_id = CAST($1 AS INT)
-            ORDER BY name
-            LIMIT 200`,
-    },
-    {
-      name: 'SKUs',
-      sql: `SELECT id, style_id, color_id, size_id, status,
-              created_at, updated_at
-            FROM rawdata.mms_skus
-            WHERE style_id = CAST($1 AS INT)
-            ORDER BY color_id, size_id
-            LIMIT 200`,
-    },
-  ],
+  // MMS Data — raw MMS tables from rawdata, keyed on product_id via mill_no.
+  // mmsSelectedStyleSql: $1 = product_id — returns 0..1 row (most-recently deployed eligible style)
+  mmsSelectedStyleSql: `SELECT id, name, manufacturer, mill_no, status,
+           decoration_method, brand, brand_type, style_type,
+           price_level, min_qty, color_limit,
+           material, features, sizing, sizes,
+           allow_blank, fitted, specialty, sponsorship,
+           has_lineup, has_singles_enabled_colors, ihp_bulk_enabled,
+           individual_ship_eligible, international_ship_eligible,
+           deploy_type, role, unit_of_measure, quantity_per_unit,
+           standard_decoration_days, rush_decoration_days,
+           created_at, updated_at, deployed_at, retired_at
+    FROM rawdata.mms_styles
+    WHERE mill_no = $1
+      AND status IN ('active','inactive','preview')
+    ORDER BY deployed_at DESC NULLS LAST, id ASC
+    LIMIT 1`,
+
+  // mmsOtherMatchesSql: $1 = product_id — eligible matches other than the first (offset 1)
+  mmsOtherMatchesSql: `SELECT id, name, status, deployed_at
+    FROM rawdata.mms_styles
+    WHERE mill_no = $1
+      AND status IN ('active','inactive','preview')
+    ORDER BY deployed_at DESC NULLS LAST, id ASC
+    OFFSET 1 LIMIT 20`,
+
+  // mmsIneligibleMatchesSql: $1 = product_id — everything else on the same mill_no
+  mmsIneligibleMatchesSql: `SELECT id, name, status, deployed_at
+    FROM rawdata.mms_styles
+    WHERE mill_no = $1
+      AND status NOT IN ('active','inactive','preview')
+    ORDER BY deployed_at DESC NULLS LAST, id ASC
+    LIMIT 20`,
+
+  // mmsColorsSql: $1 = selected style.id
+  mmsColorsSql: `SELECT id, style_id, name, status,
+           pricing_group_id, mill_no, branding_method,
+           realb, singles_price, singles_enabled,
+           abo_enabled, dtg_enabled, inventory_enabled,
+           deploy_type, suppliers,
+           deployed_at, retired_at, created_at, updated_at
+    FROM rawdata.mms_colors
+    WHERE style_id = CAST($1 AS INT)
+    ORDER BY name
+    LIMIT 500`,
+
+  // mmsSkusSuidsSql: $1 = selected style.id — one row per (size × SUID); sizes with no SUID row still appear via LEFT JOIN
+  mmsSkusSuidsSql: `SELECT c.id AS color_id, c.name AS color_name, c.status AS color_status,
+           sz.id AS size_id, sz.name AS size_name, sz.position,
+           sz.status AS size_status, sz.gtin, sz.in_stock,
+           sz.last_known_supplier_quantity, sz.oos_threshold,
+           sk.status AS sku_status,
+           u.supplier_id, u.uid, u.part_group
+    FROM rawdata.mms_colors c
+    JOIN rawdata.mms_sizes sz ON sz.color_id = c.id
+    LEFT JOIN rawdata.mms_skus sk
+      ON sk.style_id = c.style_id
+     AND sk.color_id = c.id
+     AND UPPER(sk.size_id) = UPPER(sz.name)
+    LEFT JOIN rawdata.mms_supplier_unique_ids u
+      ON u.size_id = sz.id
+    WHERE c.style_id = CAST($1 AS INT)
+    ORDER BY c.name, sz.position, u.supplier_id
+    LIMIT 500`,
 
   // S3 raw data — pre-processing JSON files from supplier data bucket
   s3Bucket: 'datafuse-promo-standards',
@@ -346,7 +368,7 @@ module.exports = {
 
   fpsTabOrder: ['Product', 'Inventory', 'SKU Details', 'Configurations', 'Charges', 'Decorations', 'Templates', 'Quantities', 'Parts', 'Packages'],
 
-  mmsTabOrder: ['Style', 'Colors', 'SKUs'],
+  mmsTabOrder: ['Style', 'Colors', 'SKUs & SUIDs'],
 
   s3TabOrder: ['Product', 'Inventory', 'Media Images', 'Media Documents', 'Config'],
 
