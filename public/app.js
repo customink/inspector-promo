@@ -641,3 +641,5 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;');
 }
 renderRecents();
+const mostRecent = loadRecents()[0];
+if (mostRecent) input.value = mostRecent.product_id;
