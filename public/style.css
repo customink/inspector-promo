@@ -158,3 +158,11 @@ main {
   display: none;
   color: #888;
 }
+
+/* === Recents dropdown === */
+#recents-menu .dropdown-item {
+  max-width: 420px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
