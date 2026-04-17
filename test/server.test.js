@@ -71,8 +71,8 @@ describe('GET /api/fpdb/:id', () => {
   });
 });
 
-describe('GET /api/mms/:id', () => {
-  it('returns query results keyed by query name', async () => {
+describe('GET /api/mms/:product_id', () => {
+  it('returns Style, Colors, SKUs & SUIDs and _meta when a style is selected', async () => {
     const Module = require('module');
     const originalRequire = Module.prototype.require;
 
@@ -81,7 +81,7 @@ describe('GET /api/mms/:id', () => {
         return {
           Pool: class {
             query() {
-              return { rows: [{ style_id: 1000, product_id: 1001 }] };
+              return { rows: [{ id: 1, name: 'Test Style', mill_no: 'ABC123', status: 'active' }] };
             }
             end() {}
           }
@@ -97,10 +97,53 @@ describe('GET /api/mms/:id', () => {
     Module.prototype.require = originalRequire;
 
     assert.strictEqual(res.status, 200);
-    const queryNames = config.mmsQueries.map((q) => q.name);
-    for (const name of queryNames) {
-      assert.ok(Array.isArray(res.body[name]), `Expected array for "${name}"`);
-    }
+    assert.ok(Array.isArray(res.body.Style), 'Style should be an array');
+    assert.strictEqual(res.body.Style.length, 1, 'Style should have the selected row');
+    assert.ok(Array.isArray(res.body.Colors), 'Colors should be an array');
+    assert.ok(Array.isArray(res.body['SKUs & SUIDs']), 'SKUs & SUIDs should be an array');
+    assert.ok(res.body._meta, '_meta should be present');
+    assert.strictEqual(res.body._meta.millNo, 'ABC123');
+    assert.ok(Array.isArray(res.body._meta.otherMatches));
+    assert.ok(Array.isArray(res.body._meta.ineligibleMatches));
+  });
+
+  it('returns empty tab arrays when no style is selected', async () => {
+    const Module = require('module');
+    const originalRequire = Module.prototype.require;
+
+    // Track call order; first 3 calls are selected/other/ineligible in parallel.
+    let callIndex = 0;
+    Module.prototype.require = function(id) {
+      if (id === 'pg') {
+        return {
+          Pool: class {
+            query() {
+              callIndex += 1;
+              // First call is selected style — return empty to simulate no match.
+              if (callIndex === 1) return { rows: [] };
+              // Subsequent calls (other/ineligible) return empty too.
+              return { rows: [] };
+            }
+            end() {}
+          }
+        };
+      }
+      return originalRequire.apply(this, arguments);
+    };
+
+    delete require.cache[require.resolve('../server')];
+    const app = require('../server');
+    const res = await request(app, '/api/mms/NOPE');
+
+    Module.prototype.require = originalRequire;
+
+    assert.strictEqual(res.status, 200);
+    assert.deepStrictEqual(res.body.Style, []);
+    assert.deepStrictEqual(res.body.Colors, []);
+    assert.deepStrictEqual(res.body['SKUs & SUIDs'], []);
+    assert.strictEqual(res.body._meta.millNo, 'NOPE');
+    assert.deepStrictEqual(res.body._meta.otherMatches, []);
+    assert.deepStrictEqual(res.body._meta.ineligibleMatches, []);
   });
 });
 
