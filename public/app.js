@@ -18,7 +18,7 @@ const FPDB_GROUPS = [
   { group: 'Fulfillment', tabs: ['Promo SKUs', 'Promo Views', 'FOBs'] },
 ];
 const FPS_TAB_ORDER = ['Product', 'Inventory', 'SKU Details', 'Configurations', 'Charges', 'Decorations', 'Templates', 'Quantities', 'Parts', 'Packages'];
-const MMS_TAB_ORDER = ['Style', 'Colors', 'SKUs'];
+const MMS_TAB_ORDER = ['Style', 'Colors', 'SKUs & SUIDs'];
 const S3_TAB_ORDER = ['Product', 'Inventory', 'Media Images', 'Media Documents', 'Config'];
 
 // Left nav
@@ -60,6 +60,11 @@ function resetResults() {
   navButtons[0].classList.add('active');
   sections.forEach((s) => s.classList.add('d-none'));
   sections[0].classList.remove('d-none');
+  const mmsNavBtn = document.querySelector('#left-nav [data-section="mms"]');
+  if (mmsNavBtn) {
+    mmsNavBtn.textContent = 'MMS';
+    mmsNavBtn.removeAttribute('title');
+  }
 }
 
 async function doLookup(id) {
@@ -114,12 +119,7 @@ function showProduct(match) {
   fetchGroupedTabbedData('fpdb', productId, 'FPDB', renderTable, FPDB_GROUPS);
   fetchTabbedData('fps', `${productId}?provider=${encodeURIComponent(provider)}`, 'FPS', renderJson, FPS_TAB_ORDER);
   fetchTabbedData('s3', `${provider}/${productId}`, 'S3', renderJson, S3_TAB_ORDER);
-  if (styleId) {
-    fetchTabbedData('mms', styleId, 'MMS', renderTable, MMS_TAB_ORDER);
-  } else {
-    document.getElementById('mms-tab-content').innerHTML =
-      '<span class="text-muted fst-italic">No style ID available — MMS data requires a style ID</span>';
-  }
+  fetchMmsData(productId);
 }
 
 // --- Links ---
@@ -229,6 +229,105 @@ function fetchTabbedData(key, idAndParams, label, renderFn, tabOrder) {
       loadingEl.classList.add('d-none');
       tabContentEl.innerHTML = `<div class="alert alert-danger">Failed to load ${label} data: ${err.message}</div>`;
     });
+}
+
+// --- MMS fetcher (product_id keyed, with left-nav warning) ---
+
+function fetchMmsData(productId) {
+  const loadingEl = document.getElementById('mms-loading');
+  const tabNavEl = document.getElementById('mms-tab-nav');
+  const tabContentEl = document.getElementById('mms-tab-content');
+  const mmsNavBtn = document.querySelector('#left-nav [data-section="mms"]');
+
+  loadingEl.classList.remove('d-none');
+  tabNavEl.innerHTML = '';
+  tabContentEl.innerHTML = '';
+  if (mmsNavBtn) {
+    mmsNavBtn.textContent = 'MMS';
+    mmsNavBtn.removeAttribute('title');
+  }
+
+  fetch(`/api/mms/${encodeURIComponent(productId)}`)
+    .then((res) => res.json())
+    .then((data) => {
+      loadingEl.classList.add('d-none');
+
+      if (data.error) {
+        tabContentEl.innerHTML = `<div class="alert alert-danger">MMS error: ${data.error}</div>`;
+        return;
+      }
+
+      const meta = data._meta || { otherMatches: [], ineligibleMatches: [] };
+      delete data._meta;
+      if (mmsNavBtn) applyMmsWarning(mmsNavBtn, meta);
+
+      const entries = MMS_TAB_ORDER.map((name) => [name, Array.isArray(data[name]) ? data[name] : []]);
+      const panes = {};
+
+      entries.forEach(([name, rows], idx) => {
+        const li = document.createElement('li');
+        li.className = 'nav-item';
+        const btn = document.createElement('button');
+        btn.className = `nav-link${idx === 0 ? ' active' : ''}`;
+        btn.textContent = name;
+        btn.addEventListener('click', () => activateTab(name));
+        li.appendChild(btn);
+        tabNavEl.appendChild(li);
+
+        const pane = document.createElement('div');
+        pane.className = `tab-pane${idx === 0 ? ' active' : ''}`;
+        renderTable(pane, rows);
+        if (idx !== 0) pane.style.display = 'none';
+        tabContentEl.appendChild(pane);
+        panes[name] = pane;
+      });
+
+      function activateTab(name) {
+        for (const li of tabNavEl.children) {
+          const b = li.querySelector('.nav-link');
+          b.classList.toggle('active', b.textContent === name);
+        }
+        Object.entries(panes).forEach(([n, p]) => {
+          p.style.display = n === name ? '' : 'none';
+          p.classList.toggle('active', n === name);
+        });
+      }
+    })
+    .catch((err) => {
+      loadingEl.classList.add('d-none');
+      tabContentEl.innerHTML = `<div class="alert alert-danger">Failed to load MMS data: ${err.message}</div>`;
+    });
+}
+
+function applyMmsWarning(btn, meta) {
+  const total = (meta.otherMatches?.length || 0) + (meta.ineligibleMatches?.length || 0);
+  if (total === 0) {
+    btn.textContent = 'MMS';
+    btn.removeAttribute('title');
+    return;
+  }
+  btn.textContent = 'MMS ⚠️';
+  btn.title = formatMmsWarningTitle(meta);
+}
+
+function formatMmsWarningTitle(meta) {
+  const formatEntries = (list) => {
+    const top = list.slice(0, 5).map((m) => {
+      const date = m.deployed_at ? String(m.deployed_at).slice(0, 10) : '—';
+      const name = m.name || '(no name)';
+      return `${m.id}: ${name} (${m.status}, ${date})`;
+    }).join('; ');
+    const more = list.length > 5 ? ` +${list.length - 5} more` : '';
+    return `${top}${more}`;
+  };
+  const parts = [];
+  if (meta.otherMatches?.length) {
+    parts.push(`${meta.otherMatches.length} other eligible — ${formatEntries(meta.otherMatches)}`);
+  }
+  if (meta.ineligibleMatches?.length) {
+    parts.push(`${meta.ineligibleMatches.length} ineligible — ${formatEntries(meta.ineligibleMatches)}`);
+  }
+  return parts.join('. ') + '.';
 }
 
 // --- Grouped tabbed data fetcher (for FPDB) ---
