@@ -72,16 +72,30 @@ describe('GET /api/fpdb/:id', () => {
 });
 
 describe('GET /api/mms/:product_id', () => {
-  it('returns Style, Colors, SKUs & SUIDs and _meta when a style is selected', async () => {
+  it('returns a styles array with per-style tab data', async () => {
     const Module = require('module');
     const originalRequire = Module.prototype.require;
 
+    // Call 1 = styles; Calls 2/3 = colors / suids for the style ids.
+    let callIndex = 0;
     Module.prototype.require = function(id) {
       if (id === 'pg') {
         return {
           Pool: class {
             query() {
-              return { rows: [{ id: 1, name: 'Test Style', mill_no: 'ABC123', status: 'active' }] };
+              callIndex += 1;
+              if (callIndex === 1) {
+                return {
+                  rows: [
+                    { id: 1, name: 'S1', mill_no: 'ABC', status: 'active', deployed_at: '2025-01-01' },
+                    { id: 2, name: 'S2', mill_no: 'ABC', status: 'retired', deployed_at: '2020-01-01' },
+                  ],
+                };
+              }
+              if (callIndex === 2) {
+                return { rows: [{ style_id: 1, id: 10, name: 'Red' }, { style_id: 2, id: 20, name: 'Blue' }] };
+              }
+              return { rows: [{ style_id: 1, color_name: 'Red', size_name: 'M', supplier_id: 99, uid: 'X' }] };
             }
             end() {}
           }
@@ -92,38 +106,35 @@ describe('GET /api/mms/:product_id', () => {
 
     delete require.cache[require.resolve('../server')];
     const app = require('../server');
-    const res = await request(app, '/api/mms/ABC123');
+    const res = await request(app, '/api/mms/ABC');
 
     Module.prototype.require = originalRequire;
 
     assert.strictEqual(res.status, 200);
-    assert.ok(Array.isArray(res.body.Style), 'Style should be an array');
-    assert.strictEqual(res.body.Style.length, 1, 'Style should have the selected row');
-    assert.ok(Array.isArray(res.body.Colors), 'Colors should be an array');
-    assert.ok(Array.isArray(res.body['SKUs & SUIDs']), 'SKUs & SUIDs should be an array');
-    assert.ok(res.body._meta, '_meta should be present');
-    assert.strictEqual(res.body._meta.millNo, 'ABC123');
-    assert.ok(Array.isArray(res.body._meta.otherMatches));
-    assert.ok(Array.isArray(res.body._meta.ineligibleMatches));
+    assert.strictEqual(res.body.millNo, 'ABC');
+    assert.ok(Array.isArray(res.body.styles));
+    assert.strictEqual(res.body.styles.length, 2);
+    const [s1, s2] = res.body.styles;
+    assert.strictEqual(s1.id, 1);
+    assert.strictEqual(s1.status, 'active');
+    assert.strictEqual(s1.tabs.Style.length, 1);
+    assert.strictEqual(s1.tabs.Colors.length, 1);
+    assert.strictEqual(s1.tabs['SKUs & SUIDs'].length, 1);
+    assert.strictEqual(s2.id, 2);
+    assert.strictEqual(s2.status, 'retired');
+    assert.strictEqual(s2.tabs.Colors.length, 1);
+    assert.deepStrictEqual(s2.tabs['SKUs & SUIDs'], []);
   });
 
-  it('returns empty tab arrays when no style is selected', async () => {
+  it('returns an empty styles array when no styles match', async () => {
     const Module = require('module');
     const originalRequire = Module.prototype.require;
 
-    // Track call order; first 3 calls are selected/other/ineligible in parallel.
-    let callIndex = 0;
     Module.prototype.require = function(id) {
       if (id === 'pg') {
         return {
           Pool: class {
-            query() {
-              callIndex += 1;
-              // First call is selected style — return empty to simulate no match.
-              if (callIndex === 1) return { rows: [] };
-              // Subsequent calls (other/ineligible) return empty too.
-              return { rows: [] };
-            }
+            query() { return { rows: [] }; }
             end() {}
           }
         };
@@ -138,12 +149,8 @@ describe('GET /api/mms/:product_id', () => {
     Module.prototype.require = originalRequire;
 
     assert.strictEqual(res.status, 200);
-    assert.deepStrictEqual(res.body.Style, []);
-    assert.deepStrictEqual(res.body.Colors, []);
-    assert.deepStrictEqual(res.body['SKUs & SUIDs'], []);
-    assert.strictEqual(res.body._meta.millNo, 'NOPE');
-    assert.deepStrictEqual(res.body._meta.otherMatches, []);
-    assert.deepStrictEqual(res.body._meta.ineligibleMatches, []);
+    assert.strictEqual(res.body.millNo, 'NOPE');
+    assert.deepStrictEqual(res.body.styles, []);
   });
 });
 

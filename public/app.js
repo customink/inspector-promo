@@ -60,11 +60,6 @@ function resetResults() {
   navButtons[0].classList.add('active');
   sections.forEach((s) => s.classList.add('d-none'));
   sections[0].classList.remove('d-none');
-  const mmsNavBtn = document.querySelector('#left-nav [data-section="mms"]');
-  if (mmsNavBtn) {
-    mmsNavBtn.textContent = 'MMS';
-    mmsNavBtn.removeAttribute('title');
-  }
 }
 
 async function doLookup(id) {
@@ -231,21 +226,18 @@ function fetchTabbedData(key, idAndParams, label, renderFn, tabOrder) {
     });
 }
 
-// --- MMS fetcher (product_id keyed, with left-nav warning) ---
+// --- MMS fetcher (product_id keyed, one pill per matching style) ---
+
+const MMS_INACTIVE_STATUSES = new Set(['retired', 'offsite']);
 
 function fetchMmsData(productId) {
   const loadingEl = document.getElementById('mms-loading');
   const tabNavEl = document.getElementById('mms-tab-nav');
   const tabContentEl = document.getElementById('mms-tab-content');
-  const mmsNavBtn = document.querySelector('#left-nav [data-section="mms"]');
 
   loadingEl.classList.remove('d-none');
   tabNavEl.innerHTML = '';
   tabContentEl.innerHTML = '';
-  if (mmsNavBtn) {
-    mmsNavBtn.textContent = 'MMS';
-    mmsNavBtn.removeAttribute('title');
-  }
 
   fetch(`/api/mms/${encodeURIComponent(productId)}`)
     .then((res) => res.json())
@@ -257,41 +249,49 @@ function fetchMmsData(productId) {
         return;
       }
 
-      const meta = data._meta || { otherMatches: [], ineligibleMatches: [] };
-      delete data._meta;
-      if (mmsNavBtn) applyMmsWarning(mmsNavBtn, meta);
+      const styles = Array.isArray(data.styles) ? data.styles : [];
+      if (styles.length === 0) {
+        tabContentEl.innerHTML = '<span class="text-muted fst-italic">No MMS styles found for this product</span>';
+        return;
+      }
 
-      const entries = MMS_TAB_ORDER.map((name) => [name, Array.isArray(data[name]) ? data[name] : []]);
-      const panes = {};
+      const stylePills = document.createElement('ul');
+      stylePills.className = 'nav nav-pills mb-2';
+      tabNavEl.appendChild(stylePills);
 
-      entries.forEach(([name, rows], idx) => {
+      const subTabNav = document.createElement('ul');
+      subTabNav.className = 'nav nav-tabs';
+      tabNavEl.appendChild(subTabNav);
+
+      styles.forEach((style, idx) => {
         const li = document.createElement('li');
         li.className = 'nav-item';
         const btn = document.createElement('button');
-        btn.className = `nav-link${idx === 0 ? ' active' : ''}`;
-        btn.textContent = name;
-        btn.addEventListener('click', () => activateTab(name));
+        const muted = MMS_INACTIVE_STATUSES.has(style.status);
+        btn.className = `nav-link${muted ? ' mms-style-muted' : ''}${idx === 0 ? ' active' : ''}`;
+        btn.textContent = formatStylePillLabel(style);
+        btn.title = formatStylePillTooltip(style);
+        btn.addEventListener('click', () => activateStyle(style.id));
         li.appendChild(btn);
-        tabNavEl.appendChild(li);
-
-        const pane = document.createElement('div');
-        pane.className = `tab-pane${idx === 0 ? ' active' : ''}`;
-        renderTable(pane, rows);
-        if (idx !== 0) pane.style.display = 'none';
-        tabContentEl.appendChild(pane);
-        panes[name] = pane;
+        stylePills.appendChild(li);
       });
 
-      function activateTab(name) {
-        for (const li of tabNavEl.children) {
+      function activateStyle(styleId) {
+        for (const li of stylePills.children) {
           const b = li.querySelector('.nav-link');
-          b.classList.toggle('active', b.textContent === name);
+          const thisId = Number(b.dataset.styleId || b.textContent.match(/^\d+/)?.[0]);
+          b.classList.toggle('active', thisId === styleId);
         }
-        Object.entries(panes).forEach(([n, p]) => {
-          p.style.display = n === name ? '' : 'none';
-          p.classList.toggle('active', n === name);
-        });
+        const style = styles.find((s) => s.id === styleId);
+        if (style) renderMmsStyleTabs(subTabNav, tabContentEl, style);
       }
+
+      // Tag buttons with their style id for reliable lookup
+      stylePills.querySelectorAll('.nav-link').forEach((b, i) => {
+        b.dataset.styleId = String(styles[i].id);
+      });
+
+      renderMmsStyleTabs(subTabNav, tabContentEl, styles[0]);
     })
     .catch((err) => {
       loadingEl.classList.add('d-none');
@@ -299,35 +299,51 @@ function fetchMmsData(productId) {
     });
 }
 
-function applyMmsWarning(btn, meta) {
-  const total = (meta.otherMatches?.length || 0) + (meta.ineligibleMatches?.length || 0);
-  if (total === 0) {
-    btn.textContent = 'MMS';
-    btn.removeAttribute('title');
-    return;
+function renderMmsStyleTabs(subTabNav, tabContentEl, style) {
+  subTabNav.innerHTML = '';
+  tabContentEl.innerHTML = '';
+  const tabs = style.tabs || {};
+  const panes = {};
+
+  MMS_TAB_ORDER.forEach((name, idx) => {
+    const rows = Array.isArray(tabs[name]) ? tabs[name] : [];
+    const li = document.createElement('li');
+    li.className = 'nav-item';
+    const btn = document.createElement('button');
+    btn.className = `nav-link${idx === 0 ? ' active' : ''}`;
+    btn.textContent = name;
+    btn.addEventListener('click', () => activateTab(name));
+    li.appendChild(btn);
+    subTabNav.appendChild(li);
+
+    const pane = document.createElement('div');
+    pane.className = `tab-pane${idx === 0 ? ' active' : ''}`;
+    renderTable(pane, rows);
+    if (idx !== 0) pane.style.display = 'none';
+    tabContentEl.appendChild(pane);
+    panes[name] = pane;
+  });
+
+  function activateTab(name) {
+    for (const li of subTabNav.children) {
+      const b = li.querySelector('.nav-link');
+      b.classList.toggle('active', b.textContent === name);
+    }
+    Object.entries(panes).forEach(([n, p]) => {
+      p.style.display = n === name ? '' : 'none';
+      p.classList.toggle('active', n === name);
+    });
   }
-  btn.textContent = 'MMS ⚠️';
-  btn.title = formatMmsWarningTitle(meta);
 }
 
-function formatMmsWarningTitle(meta) {
-  const formatEntries = (list) => {
-    const top = list.slice(0, 5).map((m) => {
-      const date = m.deployed_at ? String(m.deployed_at).slice(0, 10) : '—';
-      const name = m.name || '(no name)';
-      return `${m.id}: ${name} (${m.status}, ${date})`;
-    }).join('; ');
-    const more = list.length > 5 ? ` +${list.length - 5} more` : '';
-    return `${top}${more}`;
-  };
-  const parts = [];
-  if (meta.otherMatches?.length) {
-    parts.push(`${meta.otherMatches.length} other eligible — ${formatEntries(meta.otherMatches)}`);
-  }
-  if (meta.ineligibleMatches?.length) {
-    parts.push(`${meta.ineligibleMatches.length} ineligible — ${formatEntries(meta.ineligibleMatches)}`);
-  }
-  return parts.join('. ') + '.';
+function formatStylePillLabel(style) {
+  return `${style.id} — ${style.status}`;
+}
+
+function formatStylePillTooltip(style) {
+  const date = style.deployed_at ? String(style.deployed_at).slice(0, 10) : '—';
+  const name = style.name || '(no name)';
+  return `${style.id}: ${name} (${style.status}, deployed ${date})`;
 }
 
 // --- Grouped tabbed data fetcher (for FPDB) ---

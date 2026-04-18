@@ -171,3 +171,12 @@ main {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* === MMS style pills — muted look for retired/offsite === */
+.nav-pills .nav-link.mms-style-muted {
+  opacity: 0.55;
+  font-style: italic;
+}
+.nav-pills .nav-link.mms-style-muted.active {
+  opacity: 0.85;
+}

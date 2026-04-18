@@ -65,42 +65,46 @@ app.get('/api/fpdb/:id', async (req, res) => {
   }
 });
 
-// MMS data route — raw MMS tables from rawdata, keyed by product_id via mill_no.
-// :product_id matches mms_styles.mill_no. Selects the most-recently-deployed
-// eligible style (status in active/inactive/preview) and returns its colors plus
-// a size×SUID join. _meta carries other eligible matches and ineligible matches.
+// MMS data route — returns all MMS styles with mill_no = :product_id,
+// each with its Colors and SKUs & SUIDs tab data. Client renders one pill per style.
 app.get('/api/mms/:product_id', async (req, res) => {
   const productId = req.params.product_id;
   try {
-    const [selectedRes, otherRes, ineligibleRes] = await Promise.all([
-      pool.query(config.mmsSelectedStyleSql, [productId]),
-      pool.query(config.mmsOtherMatchesSql, [productId]),
-      pool.query(config.mmsIneligibleMatchesSql, [productId]),
-    ]);
+    const stylesRes = await pool.query(config.mmsAllStylesSql, [productId]);
+    const styles = stylesRes.rows;
 
-    const selectedStyle = selectedRes.rows[0] || null;
-    let colorsRows = [];
-    let skusSuidsRows = [];
-
-    if (selectedStyle) {
-      const [colorsRes, skusSuidsRes] = await Promise.all([
-        pool.query(config.mmsColorsSql, [selectedStyle.id]),
-        pool.query(config.mmsSkusSuidsSql, [selectedStyle.id]),
-      ]);
-      colorsRows = colorsRes.rows;
-      skusSuidsRows = skusSuidsRes.rows;
+    if (styles.length === 0) {
+      return res.json({ millNo: productId, styles: [] });
     }
 
-    res.json({
-      Style: selectedStyle ? [selectedStyle] : [],
-      Colors: colorsRows,
-      'SKUs & SUIDs': skusSuidsRows,
-      _meta: {
-        millNo: productId,
-        otherMatches: otherRes.rows,
-        ineligibleMatches: ineligibleRes.rows,
+    const styleIds = styles.map((s) => s.id);
+    const [colorsRes, skusSuidsRes] = await Promise.all([
+      pool.query(config.mmsColorsForStylesSql, [styleIds]),
+      pool.query(config.mmsSkusSuidsForStylesSql, [styleIds]),
+    ]);
+
+    const colorsByStyle = {};
+    for (const row of colorsRes.rows) {
+      (colorsByStyle[row.style_id] ??= []).push(row);
+    }
+    const suidsByStyle = {};
+    for (const row of skusSuidsRes.rows) {
+      (suidsByStyle[row.style_id] ??= []).push(row);
+    }
+
+    const enriched = styles.map((s) => ({
+      id: s.id,
+      name: s.name,
+      status: s.status,
+      deployed_at: s.deployed_at,
+      tabs: {
+        Style: [s],
+        Colors: colorsByStyle[s.id] || [],
+        'SKUs & SUIDs': suidsByStyle[s.id] || [],
       },
-    });
+    }));
+
+    res.json({ millNo: productId, styles: enriched });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
