@@ -38,7 +38,7 @@ function renderStructure(tabNavEl, tabContentEl, structure) {
   let groupPillNav = null;
   if (groups.length > 1) {
     groupPillNav = document.createElement('ul');
-    groupPillNav.className = 'nav nav-pills mb-2';
+    groupPillNav.className = 'nav nav-pills';
     tabNavEl.appendChild(groupPillNav);
   }
 

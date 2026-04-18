@@ -74,6 +74,7 @@ async function fetchFpdb(match) {
     if (groups.length === 0) {
       return { groups: [{ name: '', tabs: [{ name: 'FPDB', content: { type: 'table', rows: [] } }] }] };
     }
+console.log(groups)
     return { groups };
   } catch (err) {
     return errorStructure(err.message);
@@ -124,6 +125,8 @@ async function fetchMms(match) {
         content: { type: 'table', rows: (s.tabs && s.tabs[tabName]) || [] },
       })),
     }));
+
+console.log(groups)
 
     return { groups };
   } catch (err) {
