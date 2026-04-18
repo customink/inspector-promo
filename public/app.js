@@ -268,7 +268,7 @@ function fetchMmsData(productId) {
         li.className = 'nav-item';
         const btn = document.createElement('button');
         const muted = MMS_INACTIVE_STATUSES.has(style.status);
-        btn.className = `nav-link${muted ? ' mms-style-muted' : ''}${idx === 0 ? ' active' : ''}`;
+        btn.className = `nav-link btn btn-secondary${muted ? ' mms-style-muted' : ''}${idx === 0 ? ' active' : ''}`;
         btn.textContent = formatStylePillLabel(style);
         btn.title = formatStylePillTooltip(style);
         btn.addEventListener('click', () => activateStyle(style.id));
